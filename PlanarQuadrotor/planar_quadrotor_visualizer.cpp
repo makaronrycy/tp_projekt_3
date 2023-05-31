@@ -28,7 +28,7 @@ void PlanarQuadrotorVisualizer::render(std::shared_ptr<SDL_Renderer> &gRenderer)
     float quadrotor_left[2] = {q_x-quadrotor_size[0]/2*cos(q_theta),q_y-quadrotor_size[0]/2*sin(q_theta)};  
     float quadrotor_right[2] = {q_x+quadrotor_size[0]/2*cos(q_theta),q_y+quadrotor_size[0]/2*sin(q_theta)};
 
-    float connector_distance[2] = {quadrotor_size[0]*0.9*cos(q_theta),quadrotor_size[0]*0.9*sin(q_theta)};
+    float connector_distance[2] = {quadrotor_size[0]*0.9f*cos(q_theta),quadrotor_size[0]*0.9f*sin(q_theta)};
     float connector_length[2] = {-connector_size[1]*sin(q_theta), connector_size[1]*cos(q_theta)};
     
     float connector_left_1[2] = {quadrotor_right[0]-connector_distance[0],quadrotor_right[1]-connector_distance[1]};
