@@ -2,12 +2,13 @@
 
 #include <Eigen/Dense>
 #include <tuple>
-
+#include <matplot/matplot.h>
 #include "lqr.h"
 
 class PlanarQuadrotor {
 private:
     Eigen::VectorXf z = Eigen::VectorXf::Zero(6);
+    Eigen::Matrix4Xf z_history;
     Eigen::VectorXf z_dot = Eigen::VectorXf::Zero(6);
     Eigen::VectorXf z_goal = Eigen::VectorXf::Zero(6);
     // m, I, r, g parameters
@@ -24,6 +25,8 @@ public:
     void SetInput(Eigen::Vector2f input);
     void DoCalcTimeDerivatives(); // Shamelessly copied from Drake API
     void DoUpdateState(float dt);
-    Eigen::VectorXf Update(Eigen::Vector2f &input, float dt);
-    Eigen::VectorXf Update(float dt);
+    void UpdateHistory(float time);
+    void PlotHistory();
+    Eigen::VectorXf Update(Eigen::Vector2f &input, float dt,float time);
+    Eigen::VectorXf Update(float dt,float time);
 };

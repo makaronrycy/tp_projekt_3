@@ -1,14 +1,16 @@
 #include <iostream>
 #include <random>
-
+#include <matplot/matplot.h>
 #include "planar_quadrotor.h"
+
+const int LOG_SIZE = 10000;
 
 PlanarQuadrotor::PlanarQuadrotor() {
     std::random_device r;
     std::default_random_engine generator(r());
     std::normal_distribution<float> distribution(0.0, 1.0);
     auto gaussian = [&] (int) {return distribution(generator);};
-
+    
     z = Eigen::VectorXf::NullaryExpr(6, gaussian);
 }
 
@@ -35,6 +37,8 @@ Eigen::Vector2f PlanarQuadrotor::GravityCompInput() {
 
     return Eigen::Vector2f::Constant(m * g / 2);
 }
+
+
 
 std::tuple<Eigen::MatrixXf, Eigen::MatrixXf> PlanarQuadrotor::Linearize() {
     /* Extract parameters */
@@ -100,23 +104,50 @@ void PlanarQuadrotor::DoCalcTimeDerivatives() {
     z_dot.block(3, 0, 3, 1) << x_dotdot, y_dotdot, theta_dotdot;
 }
 
+void PlanarQuadrotor::UpdateHistory(float time){
+    int z_cols=z_history.cols();
+    if(z_cols==LOG_SIZE){
+        //Avoiding aliasing (See here: https://eigen.tuxfamily.org/dox/group__TopicAliasing.html)
+        z_history.block(0,0,4,z_cols-1) = z_history.rightCols(z_cols-1);
+        z_cols--;
+    }
+    Eigen::Vector4f temp = {z[0],z[1],z[2],time};
+    z_history.conservativeResize(z_history.rows(), z_cols+1);
+    z_history.col(z_history.cols()-1) = temp;
+}
 void PlanarQuadrotor::DoUpdateState(float dt) {
     /* Euler integration */
     z += dt * z_dot;
 }
-
+void PlanarQuadrotor::PlotHistory(){
+    Eigen::VectorXf x = z_history.row(0);
+    Eigen::VectorXf y = z_history.row(1);
+    Eigen::VectorXf theta = z_history.row(2);
+    Eigen::VectorXf time = z_history.row(3);
+    matplot::subplot(3,1,1);
+    matplot::title("x");
+    matplot::plot(time,x,"r");
+    matplot::subplot(3,1,2);
+    matplot::title("y");
+    matplot::plot(time,y,"g");
+    matplot::subplot(3,1,3);
+    matplot::title("theta");
+    matplot::plot(time,theta,"b");
+    matplot::show();
+}
 void PlanarQuadrotor::SetInput(Eigen::Vector2f input) {
     this->input = input;
 }
 
-Eigen::VectorXf PlanarQuadrotor::Update(Eigen::Vector2f &input, float dt) {
+Eigen::VectorXf PlanarQuadrotor::Update(Eigen::Vector2f &input, float dt,float time) {
     SetInput(input);
     DoCalcTimeDerivatives();
     DoUpdateState(dt);
-
+    UpdateHistory(time);
     return z;
 }
 
-Eigen::VectorXf PlanarQuadrotor::Update(float dt) {
-    return Update(input, dt);
+
+Eigen::VectorXf PlanarQuadrotor::Update(float dt,float time) {
+    return Update(input, dt,time );
 }

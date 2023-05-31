@@ -2,7 +2,8 @@
  * SDL window creation adapted from https://github.com/isJuhn/DoublePendulum
 */
 #include "simulate.h"
-
+#include "thread"
+#include "time.h"
 Eigen::MatrixXf LQR(PlanarQuadrotor &quadrotor, float dt) {
     /* Calculate LQR gain matrix */
     Eigen::MatrixXf Eye = Eigen::MatrixXf::Identity(6, 6);
@@ -44,8 +45,11 @@ int main(int argc, char* args[])
      *    [x, y, 0, 0, 0, 0]
      * 2. Update PlanarQuadrotor from simulation when goal is changed
     */
+    srand(time(NULL));
+    int init_x = rand()%(SCREEN_WIDTH) + 1;
+    int init_y = rand()%(SCREEN_HEIGHT) + 1;
     Eigen::VectorXf initial_state = Eigen::VectorXf::Zero(6);
-    initial_state<<SCREEN_WIDTH/2, SCREEN_HEIGHT/2, 0, 0, 0, 0;
+    initial_state<<init_x, init_y, 0, 0, 0, 0;
     PlanarQuadrotor quadrotor(initial_state);
     PlanarQuadrotorVisualizer quadrotor_visualizer(&quadrotor);
     /**
@@ -69,37 +73,44 @@ int main(int argc, char* args[])
     std::vector<float> x_history;
     std::vector<float> y_history;
     std::vector<float> theta_history;
-
+    float time = 0;
     if (init(gWindow, gRenderer, SCREEN_WIDTH, SCREEN_HEIGHT) >= 0)
     {
+        
         SDL_Event e;
         bool quit = false;
         float delay;
         int x, y;
         Eigen::VectorXf state = Eigen::VectorXf::Zero(6);
-
+        
         while (!quit)
         {
             //events
+            bool check = false;
             while (SDL_PollEvent(&e) != 0)
             {
                 if (e.type == SDL_QUIT)
                 {
                     quit = true;
                 }
-                else if (e.type == SDL_MOUSEMOTION)
-                {
-                    SDL_GetMouseState(&x, &y);
-                    //std::cout << "Mouse position: (" << x << ", " << y << ")" << std::endl;
-                }
+                // else if (e.type == SDL_MOUSEMOTION)
+                // {
+                //     SDL_GetMouseState(&x, &y);
+                //     //std::cout << "Mouse position: (" << x << ", " << y << ")" << std::endl;
+                // }
                 else if (e.type == SDL_MOUSEBUTTONDOWN)
                 {
                     SDL_GetMouseState(&x, &y);
                     std::cout<<"Goal: ("<<x<<", "<<y<<")"<<std::endl;
                     goal_state <<x ,y ,0 ,0 ,0 ,0;
                     quadrotor.SetGoal(goal_state);
+                    check = true;
+
                 }
-                
+                else if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_p){
+                    std::thread t(PlanarQuadrotor::PlotHistory,quadrotor);
+                    t.detach();
+                }
             }
 
             SDL_Delay((int) dt * 1000);
@@ -111,10 +122,10 @@ int main(int argc, char* args[])
             quadrotor_visualizer.render(gRenderer);
 
             SDL_RenderPresent(gRenderer.get());
-
+            time +=dt;
             /* Simulate quadrotor forward in time */
             control(quadrotor, K);
-            quadrotor.Update(dt);
+            quadrotor.Update(dt,time);
         }
     }
     SDL_Quit();
@@ -127,7 +138,7 @@ int init(std::shared_ptr<SDL_Window>& gWindow, std::shared_ptr<SDL_Renderer>& gR
     {
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
         gWindow = std::shared_ptr<SDL_Window>(SDL_CreateWindow("Planar Quadrotor", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN), SDL_DestroyWindow);
-        gRenderer = std::shared_ptr<SDL_Renderer>(SDL_CreateRenderer(gWindow.get(), -1, SDL_RENDERER_ACCELERATED), SDL_DestroyRenderer);
+        gRenderer = std::shared_ptr<SDL_Renderer>(SDL_CreateRenderer(gWindow.get(), -1, SDL_RENDERER_SOFTWARE), SDL_DestroyRenderer);
         SDL_SetRenderDrawColor(gRenderer.get(), 0xFF, 0xFF, 0xFF, 0xFF);
     }
     else
